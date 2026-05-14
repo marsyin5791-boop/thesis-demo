@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>AI 模型決策模擬器：專家評論與品牌權重展示板</title>
+    <style>
+        :root { --primary: #1e293b; --accent: #2563eb; --bg: #f1f5f9; --success: #10b981; --warning: #f59e0b; --danger: #ef4444; }
+        body { font-family: 'PingFang TC', 'Microsoft JhengHei', sans-serif; background: var(--bg); color: var(--primary); padding: 20px; line-height: 1.5; }
+        .container { max-width: 1000px; margin: auto; }
+        .header-title { text-align: center; font-size: 28px; font-weight: 800; margin-bottom: 20px; color: var(--primary); border-bottom: 5px solid var(--accent); display: inline-block; width: 100%; padding-bottom: 15px; }
+        
+        .card { background: white; border-radius: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.08); padding: 25px; margin-bottom: 25px; border: 1px solid #e2e8f0; }
+        .card-title { font-size: 22px; font-weight: bold; color: var(--accent); margin-top: 0; margin-bottom: 15px; display: flex; align-items: center; gap: 10px; border-left: 5px solid var(--accent); padding-left: 15px; }
+        
+        /* 專家列樣式 */
+        .expert-row { display: grid; grid-template-columns: 240px 1fr 1fr; gap: 20px; align-items: center; padding: 12px; border-bottom: 1px solid #f1f5f9; }
+        .expert-name { font-weight: 600; color: #0f172a; font-size: 16px; }
+        .expert-desc { font-size: 11px; color: #64748b; margin-top: 2px; }
+        .control-label { font-size: 12px; color: #475569; margin-bottom: 4px; font-weight: bold; }
+        input[type=range] { width: 100%; accent-color: var(--accent); cursor: pointer; }
+        .val-badge { display: inline-block; background: #e0f2fe; color: #0369a1; padding: 2px 8px; border-radius: 6px; font-size: 14px; font-weight: bold; width: 35px; text-align: center; }
+
+        /* 結果顯示區 */
+        .result-section { display: flex; justify-content: space-between; align-items: center; background: #1e293b; color: white; padding: 20px; border-radius: 12px; margin: 20px 0; }
+        .final-score-wrap { text-align: center; flex: 1; }
+        .final-score { font-size: 52px; font-weight: 800; color: #60a5fa; line-height: 1; }
+        .formula-box { flex: 1.8; font-size: 14px; background: rgba(255,255,255,0.1); padding: 12px; border-radius: 8px; font-family: 'Courier New', monospace; border-left: 4px solid #60a5fa; }
+
+        /* 按鈕區 */
+        .btn-group { display: flex; gap: 12px; justify-content: center; margin-bottom: 15px; }
+        button { padding: 10px 18px; border: none; border-radius: 8px; cursor: pointer; font-weight: bold; transition: 0.2s; font-size: 14px; }
+        .btn-preset-1 { background: var(--success); color: white; }
+        .btn-preset-2 { background: var(--warning); color: white; }
+        button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(0,0,0,0.15); }
+
+        /* 品牌區樣式 */
+        .brand-selector { width: 100%; padding: 12px; font-size: 16px; border-radius: 8px; border: 2px solid #cbd5e1; margin-bottom: 20px; font-weight: bold; }
+        .brand-grid { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 15px; }
+        .info-box { background: #f8fafc; padding: 15px; border-radius: 10px; border: 1px solid #e2e8f0; text-align: center; }
+        .info-label { font-size: 13px; font-weight: bold; color: #64748b; margin-bottom: 8px; }
+        .info-value { font-size: 28px; font-weight: 800; color: var(--accent); }
+        .info-sub { font-size: 11px; color: #94a3b8; margin-top: 5px; }
+
+        /* 指南表格樣式 */
+        .guide-table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 13px; background: white; }
+        .guide-table th { background: #f1f5f9; text-align: left; padding: 10px; border: 1px solid #e2e8f0; color: #475569; }
+        .guide-table td { padding: 10px; border: 1px solid #e2e8f0; }
+        .tag { padding: 3px 8px; border-radius: 4px; font-size: 11px; font-weight: bold; white-space: nowrap; }
+        .tag-v1 { background: #fee2e2; color: #991b1b; }
+        .tag-v2 { background: #e0e7ff; color: #3730a3; }
+        .tag-v3 { background: #dcfce7; color: #166534; }
+        .tag-pos { background: #dcfce7; color: #166534; }
+        .tag-neg { background: #fee2e2; color: #991b1b; }
+
+        .note-box { background: #fffbeb; border-left: 5px solid #f59e0b; padding: 18px; font-size: 14px; color: #92400e; margin-top: 20px; border-radius: 6px; line-height: 1.6; }
+        .note-title { font-size: 16px; font-weight: bold; color: #b45309; margin-bottom: 10px; display: block; }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <div class="header-title">AI 模型決策模擬器：專家評論與品牌權重展示板</div>
+
+    <div class="card">
+        <div class="card-title">🔬 模組一：專家語意加權系統 (Expert Panel Weighted Average)</div>
+        <div class="btn-group">
+            <button class="btn-preset-1" onclick="applyPreset('flagship')">🏆 範例 A：旗艦共識 (權威一致好評)</button>
+            <button class="btn-preset-2" onclick="applyPreset('conflict')">⚠️ 範例 B：評價兩極 (權威抓出嚴重缺陷)</button>
+        </div>
+
+        <div id="expert-container"></div>
+
+        <div class="result-section">
+            <div class="final-score-wrap">
+                <div style="font-size: 12px; opacity: 0.8;">加權計算結果 (Expert_Score)</div>
+                <div class="final-score" id="finalScoreDisplay">4.00</div>
+            </div>
+            <div class="formula-box">
+                <div style="margin-bottom: 5px; font-weight: bold; color: #60a5fa;">📊 權威加權平均公式演算法：</div>
+                <div id="formulaText"></div>
+            </div>
+        </div>
+
+        <h4 style="margin-bottom: 10px; color: #475569;">📖 專家評分量化指南 (Likert Scale)</h4>
+        <table class="guide-table">
+            <thead>
+                <tr>
+                    <th width="60">分數</th>
+                    <th width="100">學術定義</th>
+                    <th>NLP 語意特徵描述 (Ground Truth 標籤參考)</th>
+                </tr>
+            </thead>
+            <tbody>
+                <tr>
+                    <td><b>5.0</b></td>
+                    <td><span class="tag tag-pos">極佳 (SOTA)</span></td>
+                    <td>無懈可擊。具備該類別頂尖解熱效能、極致靜音、或突破性工藝。</td>
+                </tr>
+                <tr>
+                    <td><b>4.0</b></td>
+                    <td><span class="tag tag-pos">優良</span></td>
+                    <td>高度推薦。性能優於大盤平均，雖有微小缺點但不影響整體價值。</td>
+                </tr>
+                <tr>
+                    <td><b>3.0</b></td>
+                    <td><span>中立/合格</span></td>
+                    <td>性能符合規格。表現中規中矩，定價與性能成正比，無明顯優劣。</td>
+                </tr>
+                <tr>
+                    <td><b>2.0</b></td>
+                    <td><span class="tag tag-neg">不推薦</span></td>
+                    <td>低於預期。可能存在噪音過大、安裝困難或解熱效率低於同級產品。</td>
+                </tr>
+                <tr>
+                    <td><b>1.0</b></td>
+                    <td><span class="tag tag-neg">極劣 (避雷)</span></td>
+                    <td>規格虛標。實測效能與標稱瓦數落差極大，或有重大設計缺陷。</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <div class="card-title">🏢 模組二：品牌分級與信仰溢價 (Brand Weights)</div>
+        <select class="brand-selector" id="brandSelect" onchange="updateBrand()">
+            <option value="Noctua">Noctua (貓頭鷹) - 頂級工藝與極致靜音</option>
+            <option value="ASUS">ASUS (ROG) - 強大品牌信仰與生態圈</option>
+            <option value="Cooler Master">Cooler Master - 老牌大廠主流選擇</option>
+            <option value="Thermalright">Thermalright (利民) - 價格破壞者 / CP值王者</option>
+            <option value="ID-Cooling">ID-Cooling - 入門級高CP值首選</option>
+        </select>
+
+        <div class="brand-grid">
+            <div class="info-box">
+                <div class="info-label">市場分級 (Level)</div>
+                <div id="brandLevel" class="info-value">-</div>
+                <div class="info-sub">反映品牌在市場的定位階層</div>
+            </div>
+            <div class="info-box">
+                <div class="info-label">價值預期 (V_Score)</div>
+                <div id="brandVScore" class="info-value">-</div>
+                <div class="info-sub">影響 AI 模型對產品定價的「心理預期」</div>
+            </div>
+            <div class="info-box">
+                <div class="info-label">溢價係數 (F_Brand)</div>
+                <div id="brandFactor" class="info-value">-</div>
+                <div class="info-sub">用於最終 CP 值與價格容忍度修正</div>
+            </div>
+        </div>
+
+        <div class="note-box">
+            <span class="note-title">💡 學術與演算法邏輯說明：</span>
+            <b>1. V_Score (Value Score / 基礎價值預期分)：</b><br>
+            「V」代表 <b>Value (價值)</b>。這是提供給 TabPFN AI 模型的「特徵輸入參數 (X)」。分數越高，代表 AI 認定該品牌在同等物理規格下，先天具備更高的「價值天花板」與市場定位。<br><br>
+            <b>2. F_Brand (Brand Factor / 品牌溢價係數)：</b><br>
+            「F」代表 <b>Factor (因子/乘數)</b>。這是針對模型輸出的最終定價所做的「商業邏輯修正值 (Y')」。<br>
+            • 例：Noctua 的 F_Brand 為 <code>1.25x</code>，代表市場願為其頂級工藝多支付 25% 的信仰溢價。<br>
+            • 例：Thermalright (利民) 為 <code>0.90x</code>，代表系統偵測其為「CP值導向品牌」，自動下修 10% 價格預期以確保市場競爭力。
+        </div>
+    </div>
+</div>
+
+<script>
+    // 專家數據 (對齊 expert_list.csv)
+    const experts = [
+        { id: 0, name: "Gamers Nexus", desc: "YT: 2.58M | 擁有百萬鎂級風洞實驗室", weight: 5.0, score: 4.5, icon: "🛡️" },
+        { id: 1, name: "Tom's Hardware", desc: "流量: 16.1M/月 | 硬體界歷史級權威標竿", weight: 4.8, score: 3.5, icon: "👑" },
+        { id: 2, name: "TechPowerUp", desc: "流量: 6.0M/月 | GPU-Z 開發者與數據庫專家", weight: 4.9, score: 4.0, icon: "💾" },
+        { id: 3, name: "PC Gamer", desc: "流量: 22.5M/月 | 全球最大玩家與選購建議媒體", weight: 4.0, score: 4.0, icon: "🎮" }
+    ];
+
+    // 品牌數據 (對齊 brand_scores.csv)
+    const brandData = {
+        "Noctua": { level: "V1 頂級", v_score: "5.0", f_brand: "1.25x", tag: "tag-v1" },
+        "ASUS": { level: "V1 頂級", v_score: "4.8", f_brand: "1.20x", tag: "tag-v1" },
+        "Cooler Master": { level: "V2 一線", v_score: "4.2", f_brand: "1.05x", tag: "tag-v2" },
+        "Thermalright": { level: "V3 主流", v_score: "3.5", f_brand: "0.90x", tag: "tag-v3" },
+        "ID-Cooling": { level: "V3 主流", v_score: "3.2", f_brand: "0.85x", tag: "tag-v3" }
+    };
+
+    function renderExperts() {
+        const html = experts.map(exp => `
+            <div class="expert-row">
+                <div>
+                    <div class="expert-name">${exp.icon} ${exp.name}</div>
+                    <div class="expert-desc">${exp.desc}</div>
+                </div>
+                <div>
+                    <div class="control-label">NLP 語意評分 (1.0 - 5.0)</div>
+                    <input type="range" min="1" max="5" step="0.1" value="${exp.score}" 
+                        oninput="updateData(${exp.id}, 'score', this.value)">
+                    <span class="val-badge" id="s_val_${exp.id}">${exp.score}</span>
+                </div>
+                <div>
+                    <div class="control-label">媒體權重 Weight (權威度)</div>
+                    <input type="range" min="1" max="5" step="0.1" value="${exp.weight}" 
+                        oninput="updateData(${exp.id}, 'weight', this.value)">
+                    <span class="val-badge" id="w_val_${exp.id}">${exp.weight}</span>
+                </div>
+            </div>
+        `).join('');
+        document.getElementById('expert-container').innerHTML = html;
+        calculate();
+    }
+
+    function updateData(id, type, val) {
+        experts[id][type] = parseFloat(val);
+        document.getElementById(`${type === 'score' ? 's' : 'w'}_val_${id}`).innerText = val;
+        calculate();
+    }
+
+    function calculate() {
+        let weightedSum = 0;
+        let totalWeight = 0;
+        let formulaParts = [];
+
+        experts.forEach(exp => {
+            weightedSum += exp.score * exp.weight;
+            totalWeight += exp.weight;
+            formulaParts.push(`(${exp.score}×${exp.weight})`);
+        });
+
+        const result = (weightedSum / totalWeight).toFixed(2);
+        document.getElementById('finalScoreDisplay').innerText = result;
+        document.getElementById('formulaText').innerHTML = 
+            `Expert_Score = Σ(Score × Weight) / ΣWeight <br>= [ ${formulaParts.join('+')} ] / ${totalWeight.toFixed(1)} <br>= <b>${result}</b>`;
+    }
+
+    function applyPreset(mode) {
+        if (mode === 'flagship') {
+            experts[0].score = 4.8; experts[1].score = 4.7; experts[2].score = 4.5; experts[3].score = 4.8;
+        } else {
+            experts[0].score = 1.5; experts[1].score = 2.5; experts[2].score = 2.0; experts[3].score = 4.5;
+        }
+        renderExperts();
+    }
+
+    function updateBrand() {
+        const brand = document.getElementById('brandSelect').value;
+        const data = brandData[brand];
+        document.getElementById('brandLevel').innerHTML = `<span class="tag ${data.tag}">${data.level}</span>`;
+        document.getElementById('brandVScore').innerText = data.v_score;
+        document.getElementById('brandFactor').innerText = data.f_brand;
+    }
+
+    window.onload = () => { renderExperts(); updateBrand(); };
+</script>
+
+</body>
+</html>
